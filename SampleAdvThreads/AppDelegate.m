@@ -8,6 +8,7 @@
 
 #import "AppDelegate.h"
 
+
 @implementation AppDelegate
 
 - (void)dealloc
@@ -19,9 +20,17 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     self.window = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
-    // Override point for customization after application launch.
-    self.window.backgroundColor = [UIColor whiteColor];
+    //SimpleViewController* simpleViewController = [[SimpleViewController alloc] init];
+	
+	ListViewController* simpleViewController = [[ListViewController alloc]init];
+    UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:simpleViewController];
+    self.window.rootViewController = navController;
+    
     [self.window makeKeyAndVisible];
+    
+    [simpleViewController release];
+    [navController release];
+            
     return YES;
 }
 
