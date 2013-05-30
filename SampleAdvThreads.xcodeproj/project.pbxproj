@@ -25,6 +25,7 @@
 		AB05891617533469002FE9F9 /* ImageDownloader.m in Sources */ = {isa = PBXBuildFile; fileRef = AB05891517533469002FE9F9 /* ImageDownloader.m */; };
 		AB05891D175347D8002FE9F9 /* SimpleViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = AB05891C175347D8002FE9F9 /* SimpleViewController.m */; };
 		AB05892017535902002FE9F9 /* request_queue.c in Sources */ = {isa = PBXBuildFile; fileRef = AB05891F17535902002FE9F9 /* request_queue.c */; };
+		AB6B971C175711540047A6BD /* ListViewWithMultiCurlController.m in Sources */ = {isa = PBXBuildFile; fileRef = AB6B971B175711540047A6BD /* ListViewWithMultiCurlController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +56,8 @@
 		AB05891C175347D8002FE9F9 /* SimpleViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SimpleViewController.m; sourceTree = "<group>"; };
 		AB05891E175358F0002FE9F9 /* request_queue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = request_queue.h; sourceTree = "<group>"; };
 		AB05891F17535902002FE9F9 /* request_queue.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = request_queue.c; sourceTree = "<group>"; };
+		AB6B971A175711530047A6BD /* ListViewWithMultiCurlController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ListViewWithMultiCurlController.h; sourceTree = "<group>"; };
+		AB6B971B175711540047A6BD /* ListViewWithMultiCurlController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ListViewWithMultiCurlController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +112,8 @@
 		AB0588EA1753259A002FE9F9 /* SampleAdvThreads */ = {
 			isa = PBXGroup;
 			children = (
+				AB6B971A175711530047A6BD /* ListViewWithMultiCurlController.h */,
+				AB6B971B175711540047A6BD /* ListViewWithMultiCurlController.m */,
 				6DBA1E5717538ADF00A6A249 /* ListViewController.h */,
 				6DBA1E5817538ADF00A6A249 /* ListViewController.m */,
 				AB05891F17535902002FE9F9 /* request_queue.c */,
@@ -212,6 +217,7 @@
 				AB05891D175347D8002FE9F9 /* SimpleViewController.m in Sources */,
 				AB05892017535902002FE9F9 /* request_queue.c in Sources */,
 				6DBA1E5917538ADF00A6A249 /* ListViewController.m in Sources */,
+				AB6B971C175711540047A6BD /* ListViewWithMultiCurlController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

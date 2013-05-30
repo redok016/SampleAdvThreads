@@ -1,94 +1,153 @@
 //
-//  ListViewController.m
+//  ListViewWithMultiCurlController.m
 //  SampleAdvThreads
 //
-//  Created by artist on 13. 5. 27..
+//  Created by JungHoyon on 13. 5. 30..
 //  Copyright (c) 2013년 JungHoyon. All rights reserved.
 //
-#include "request_queue.h"
+
+#include <stdlib.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include "curl/curl.h"
+#include "request_queue.h"
 
-#import "ListViewController.h"
+#import "ListViewWithMultiCurlController.h"
 
-
-static queue_t global_queue;
-id refthis;
-
-struct MemoryStruct {
-    char *memory;
-    size_t size;
+queue_t global_queue;
+struct data_t{
+	char* data;
+	size_t size;
 };
 
-// handle on load function
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
-    size_t realsize = size * nmemb;
-    struct MemoryStruct* mem = (struct MemoryStruct* )userp;
-    mem->memory = (char*)realloc( mem->memory, mem->size + realsize + 1);
-    if (mem->memory == NULL) {
-        /* out of memory! */
-        printf("not enough memory (realloc returned NULL)");
-        exit(EXIT_FAILURE);
-    }
-    memcpy(&(mem->memory[mem->size]), contents, realsize);
-    mem->size += realsize;
-    mem->memory[mem->size] = 0;
-    return realsize;
+size_t curl_writer( void* buffer, size_t size, size_t count, void* stream )
+{
+	size_t realsize = size * count;
+	struct data_t* buf = (struct data_t*)stream;
+	buf->data = (char*)realloc( buf->data, buf->size + realsize + 1 );
+	memcpy(&(buf->data[buf->size]), buffer, realsize);
+	buf->size += realsize;
+	buf->data[ buf->size ] = 0;
+    
+	return realsize;
 }
 
+CURL* curl_easy_handler( char* url, void* sRsp, unsigned int uiTimeout )
+{
+	CURL* curl = curl_easy_init();
+    
+	curl_easy_setopt( curl, CURLOPT_URL, url );
+	curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
+    
+	curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, curl_writer );
+	curl_easy_setopt( curl, CURLOPT_WRITEDATA, sRsp );
+    
+	return curl;
+}
 
+int curl_multi_select( CURLM* curl_m )
+{
+	int ret = 0;
+	struct timeval timeout_tv;
+	fd_set fd_read;
+	fd_set fd_write;
+	fd_set fd_except;
+    
+	int max_fd = -1;
+    
+	FD_ZERO(&fd_read);
+	FD_ZERO(&fd_write);
+	FD_ZERO(&fd_except);
+    
+	timeout_tv.tv_sec = 1;
+	timeout_tv.tv_usec = 0;
+    
+	curl_multi_fdset( curl_m, &fd_read, &fd_write, &fd_except, &max_fd );
+	int ret_code = select( max_fd + 1, &fd_read, &fd_write, &fd_except, &timeout_tv );
+	switch (ret_code) {
+		case -1:
+			ret = -1;
+            break;
+		case 0:
+		default:
+			ret = 0;
+            break;
+	}
+	return ret;
+}
 
-
+int curl_multi_action( int num )
+{
+	int i;
+	CURLM* curl_m = curl_multi_init();
+    
+	struct data_t** streams;
+	CURL** curls;
+	
+	curls = (CURL**)malloc(sizeof(CURL*) * num);
+	streams = (struct data_t**)malloc( sizeof( struct data_t*) * num );
+	
+    
+	for (i = 0; i < num; i++) {
+		streams[i] = (struct data_t*)malloc(sizeof( struct data_t ));
+		curls[i] = curl_easy_handler( "http://www.naver.com", (void*)streams[i], 2000 );
+		curl_multi_add_handle( curl_m, curls[i] );
+	}
+    
+	int running_handles;
+	while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles)) {
+		printf("running_handles: %d\n", running_handles);
+	}
+    
+	while (running_handles) {
+		while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles)) {
+			printf("select: %d\n", running_handles);
+		}
+	}
+	printf("select_: %d\n", running_handles);
+	
+	int msgs_left;
+	CURLMsg* msg;
+	while (msg = curl_multi_info_read(curl_m, &msgs_left)) {
+		if (CURLMSG_DONE == msg->msg) {
+			int idx;
+			for (idx = 0; idx < num; ++idx) {
+				if (msg->easy_handle == curls[idx]) {
+					break;
+				}
+			}
+			if (idx == num) {
+				
+			}else{
+				printf("curl [ %d ] completed with status: %d ", idx, msg->data.result);
+				printf("rsp %s\n", ((struct data_t*)&streams[i])->data);
+			}
+		}
+	}
+	for (i = 0; i < num; i++) {
+		curl_multi_remove_handle( curl_m, curls[i] );
+	}
+	for (i = 0; i < num; i++) {
+		curl_easy_cleanup(curls[i]);
+	}
+    
+	curl_multi_cleanup(curl_m);
+	return 0;
+}
 
 static void* worker( void* param ){
     
     ImageDownloader* _downloader = (ImageDownloader*)param;
-    
-    CURL* curl;
-    CURLcode result;
-    
-    curl = curl_easy_init();
-    if(curl){
-        struct MemoryStruct chunk;
-        chunk.memory = (char*)malloc(1); /* will be grown as needed by the realloc above no data at this point */
-        chunk.size = 0;
-        
-        //>> area of obj-c
-        PhotoRecord* photoItem = [_downloader photoRecord];
-        //<< area of obj-c
-        const char* url = [[photoItem url] UTF8String];
-        printf("URL => %s\n", url);
-        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-        curl_easy_setopt(curl, CURLOPT_DNS_USE_GLOBAL_CACHE, 0);
-        curl_easy_setopt(curl, CURLOPT_URL, url);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
-        
-        result = curl_easy_perform(curl);
-//        //>> get result Image
-		if (result != CURLE_OK) {
-			printf("Error!");
-		}
-        NSData* image = [[NSData alloc]initWithBytes:chunk.memory length:chunk.size];
-        UIImage* realImage = [UIImage imageWithData:image];
-        NSLog(@"result image: => %@ ", realImage);
-        if (realImage) {
-            photoItem.image = realImage;
-            [_downloader dispatchData];
-            printf("complete!\n");
-        }
-        //<< get result Image.
-        
-        curl_easy_cleanup(curl);
-    }
-	
+    curl_multi_action(1);
     return NULL;
 }
 
-@interface ListViewController ()
+
+@interface ListViewWithMultiCurlController ()
 
 @end
 
-@implementation ListViewController
+@implementation ListViewWithMultiCurlController
 
 @synthesize photos = _photos;
 @synthesize operationList = _operationList;
@@ -145,7 +204,7 @@ static void* worker( void* param ){
 	initialize_queue(&global_queue, 1000);
     // Uncomment the following line to preserve selection between presentations.
     // self.clearsSelectionOnViewWillAppear = NO;
- 
+    
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
 }
@@ -200,43 +259,43 @@ static void* worker( void* param ){
 }
 
 /*
-// Override to support conditional editing of the table view.
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // Return NO if you do not want the specified item to be editable.
-    return YES;
-}
-*/
+ // Override to support conditional editing of the table view.
+ - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath
+ {
+ // Return NO if you do not want the specified item to be editable.
+ return YES;
+ }
+ */
 
 /*
-// Override to support editing the table view.
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // Delete the row from the data source
-        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-    }   
-    else if (editingStyle == UITableViewCellEditingStyleInsert) {
-        // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-    }   
-}
-*/
+ // Override to support editing the table view.
+ - (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
+ {
+ if (editingStyle == UITableViewCellEditingStyleDelete) {
+ // Delete the row from the data source
+ [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
+ }
+ else if (editingStyle == UITableViewCellEditingStyleInsert) {
+ // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
+ }
+ }
+ */
 
 /*
-// Override to support rearranging the table view.
-- (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
-{
-}
-*/
+ // Override to support rearranging the table view.
+ - (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath
+ {
+ }
+ */
 
 /*
-// Override to support conditional rearranging of the table view.
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    // Return NO if you do not want the item to be re-orderable.
-    return YES;
-}
-*/
+ // Override to support conditional rearranging of the table view.
+ - (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath
+ {
+ // Return NO if you do not want the item to be re-orderable.
+ return YES;
+ }
+ */
 
 - (void)startOperationsForPhotoRecord:(PhotoRecord *)record atIndexPath:(NSIndexPath *)indexPath {
     

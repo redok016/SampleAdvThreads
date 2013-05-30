@@ -20,9 +20,14 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
     self.window = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
+    //only 1 image
     //SimpleViewController* simpleViewController = [[SimpleViewController alloc] init];
-	
-	ListViewController* simpleViewController = [[ListViewController alloc]init];
+    
+    //multi thread but blocked curl
+	//ListViewController* simpleViewController = [[ListViewController alloc]init];
+    
+    //multi thread with non-blocking curl
+    ListViewWithMultiCurlController* simpleViewController = [[ListViewWithMultiCurlController alloc]init];
     UINavigationController *navController = [[UINavigationController alloc] initWithRootViewController:simpleViewController];
     self.window.rootViewController = navController;
     
