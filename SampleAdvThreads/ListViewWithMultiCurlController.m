@@ -15,37 +15,44 @@
 #import "ListViewWithMultiCurlController.h"
 
 queue_t global_queue;
+
 struct data_t{
 	char* data;
 	size_t size;
 };
 
-size_t curl_writer( void* buffer, size_t size, size_t count, void* stream )
+static size_t curl_writer( void* buffer, size_t size, size_t count, void* stream )
 {
 	size_t realsize = size * count;
 	struct data_t* buf = (struct data_t*)stream;
 	buf->data = (char*)realloc( buf->data, buf->size + realsize + 1 );
+    if (buf->data == NULL) {
+        /* out of memory! */
+        printf("not enough memory (realloc returned NULL)");
+        exit(EXIT_FAILURE);
+    }
 	memcpy(&(buf->data[buf->size]), buffer, realsize);
 	buf->size += realsize;
 	buf->data[ buf->size ] = 0;
     
-	return realsize;
+    
+    	return realsize;
 }
 
-CURL* curl_easy_handler( char* url, void* sRsp, unsigned int uiTimeout )
+static CURL* curl_easy_handler(const char* url, void* sRsp, unsigned int uiTimeout )
 {
 	CURL* curl = curl_easy_init();
-    
+    curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
+    curl_easy_setopt(curl, CURLOPT_DNS_USE_GLOBAL_CACHE, 0);
 	curl_easy_setopt( curl, CURLOPT_URL, url );
-	curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
-    
+
 	curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, curl_writer );
 	curl_easy_setopt( curl, CURLOPT_WRITEDATA, sRsp );
     
 	return curl;
 }
 
-int curl_multi_select( CURLM* curl_m )
+static int curl_multi_select( CURLM* curl_m )
 {
 	int ret = 0;
 	struct timeval timeout_tv;
@@ -76,69 +83,212 @@ int curl_multi_select( CURLM* curl_m )
 	return ret;
 }
 
-int curl_multi_action( int num )
-{
-	int i;
-	CURLM* curl_m = curl_multi_init();
-    
-	struct data_t** streams;
-	CURL** curls;
-	
-	curls = (CURL**)malloc(sizeof(CURL*) * num);
-	streams = (struct data_t**)malloc( sizeof( struct data_t*) * num );
-	
-    
-	for (i = 0; i < num; i++) {
-		streams[i] = (struct data_t*)malloc(sizeof( struct data_t ));
-		curls[i] = curl_easy_handler( "http://www.naver.com", (void*)streams[i], 2000 );
-		curl_multi_add_handle( curl_m, curls[i] );
-	}
-    
-	int running_handles;
-	while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles)) {
-		printf("running_handles: %d\n", running_handles);
-	}
-    
-	while (running_handles) {
-		while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles)) {
-			printf("select: %d\n", running_handles);
-		}
-	}
-	printf("select_: %d\n", running_handles);
-	
-	int msgs_left;
-	CURLMsg* msg;
-	while (msg = curl_multi_info_read(curl_m, &msgs_left)) {
-		if (CURLMSG_DONE == msg->msg) {
-			int idx;
-			for (idx = 0; idx < num; ++idx) {
-				if (msg->easy_handle == curls[idx]) {
-					break;
-				}
-			}
-			if (idx == num) {
-				
-			}else{
-				printf("curl [ %d ] completed with status: %d ", idx, msg->data.result);
-				printf("rsp %s\n", ((struct data_t*)&streams[i])->data);
-			}
-		}
-	}
-	for (i = 0; i < num; i++) {
-		curl_multi_remove_handle( curl_m, curls[i] );
-	}
-	for (i = 0; i < num; i++) {
-		curl_easy_cleanup(curls[i]);
-	}
-    
-	curl_multi_cleanup(curl_m);
-	return 0;
-}
 
 static void* worker( void* param ){
     
-    ImageDownloader* _downloader = (ImageDownloader*)param;
-    curl_multi_action(1);
+//    ImageDownloader* _downloader = (ImageDownloader*)param;
+//
+//    CURLM* multi_handle=NULL;
+//    CURL *curl = NULL;
+//    CURLMcode res;
+//    
+//    struct data_t* streams = (struct data_t*)malloc( sizeof( struct data_t));
+//    streams->data = (char*)malloc(1);
+//    streams->size = 0;
+//    
+//    //>> area of obj-c
+//    PhotoRecord* photoItem = [_downloader photoRecord];
+//    //<< area of obj-c
+//    const char* url = [[photoItem url] UTF8String];
+//    printf("URL => %s\n", url);
+//    
+//    curl = curl_easy_handler(url, (void*)streams, 2000);
+//    
+//    if (curl != NULL)
+//    {
+//        
+//        //your curl setopt
+//        multi_handle = curl_multi_init();
+//        res = curl_multi_add_handle(multi_handle, curl);
+//        
+//        int running_handles;
+//        int msgs_left;
+//        CURLMsg* msg;
+//        
+//        while (running_handles) {
+//            while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(multi_handle, &running_handles)) {
+//        		printf("select: %d\n", running_handles);
+//            }
+//        }
+//        printf("select_: %d\n", running_handles);
+//        while (msg = curl_multi_info_read(multi_handle, &msgs_left)) {
+//            if (CURLMSG_DONE == msg->msg) {
+//                printf("curl completed with status: %d \n", msg->data.result);
+//                
+//                NSData* image = [[NSData alloc]initWithBytes:streams->data length:streams->size];
+//                UIImage* realImage = [UIImage imageWithData:image];
+//                
+//                if (realImage) {
+//                    photoItem.image = realImage;
+//                    [_downloader dispatchData];
+//                    printf("complete!\n");
+//                }
+//                break;
+//            }
+//        }
+//        curl_multi_remove_handle( multi_handle, curl );
+//        curl_easy_cleanup(curl);
+//        
+//    }
+    // real success 
+//    CURLM * curl_m = curl_multi_init();
+//    
+//    CURL** CurlArray = (CURL**)malloc(sizeof(CURL*));
+//    struct data_t** streams = (struct data_t**)malloc(sizeof(struct data_t*));
+//    ImageDownloader* _downloader = (ImageDownloader*)param;
+//    //>> area of obj-c
+//    PhotoRecord* photoItem = [_downloader photoRecord];
+//    //<< area of obj-c
+//    const char* url = [[photoItem url] UTF8String];
+//    //printf("URL => %s\n", url);
+//    
+//    for (int idx = 0; idx < 1; ++idx)
+//    {
+//        streams[idx] = (struct data_t*)malloc(sizeof(struct data_t));
+//        streams[idx]->data = (char*)malloc(1);
+//        streams[idx]->size = 0;
+//
+//        CurlArray[idx] = curl_easy_handler(url, streams[idx], 2000);
+//        curl_multi_add_handle(curl_m, CurlArray[idx]);
+//    }
+//    
+//    
+//    int running_handles;
+//    while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles))
+//    {}
+//    while (running_handles)
+//    {
+//        if (-1 == curl_multi_select(curl_m)) {
+//            printf("select error!!\n");
+//            break;
+//        }else{
+//            while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(curl_m, &running_handles))
+//            {
+//            }
+//        }
+//    }
+//    
+//    int         msgs_left;
+//    CURLMsg *   msg;
+//    while((msg = curl_multi_info_read(curl_m, &msgs_left)))
+//    {
+//        if (CURLMSG_DONE == msg->msg)
+//        {
+//            int idx;
+//            for (idx = 0; idx < 1; ++idx)
+//            {
+//                if (msg->easy_handle == CurlArray[idx]) break;
+//            }
+//            if (idx == 1){
+//                //printf("BUG/BUG/BUG/BUG/BUG/BUG\n");
+//            }
+//            NSData* image = [[NSData alloc]initWithBytes:streams[idx]->data length:streams[idx]->size];
+//            UIImage* realImage = [UIImage imageWithData:image];
+//                if (realImage) {
+//                    photoItem.image = realImage;
+//                    [_downloader dispatchData];
+//                    //printf("complete!\n");
+//            }
+//
+//        }
+//    }
+//    
+//    for (int idx = 0; idx < 1; ++idx)
+//    {
+//        curl_multi_remove_handle(curl_m, CurlArray[idx]);
+//    }
+//    
+//    for (int idx = 0; idx < 1; ++idx)
+//    {
+//        curl_easy_cleanup(CurlArray[idx]);
+//    }
+//    
+//    curl_multi_cleanup(curl_m);
+    
+    
+        ImageDownloader* _downloader = (ImageDownloader*)param;
+    
+        CURLM* multi_handle=NULL;
+        CURL *curl = NULL;
+        CURLMcode res;
+    
+        struct data_t* streams = (struct data_t*)malloc( sizeof( struct data_t));
+        streams->data = (char*)malloc(1);
+        streams->size = 0;
+    
+        //>> area of obj-c
+        PhotoRecord* photoItem = [_downloader photoRecord];
+        //<< area of obj-c
+        const char* url = [[photoItem url] UTF8String];
+        printf("URL => %s\n", url);
+    
+        curl = curl_easy_handler(url, (void*)streams, 2000);
+    
+        if (curl != NULL)
+        {
+    
+    
+            multi_handle = curl_multi_init();
+            res = curl_multi_add_handle(multi_handle, curl);
+    
+            int running_handles;
+            do {
+                while(curl_multi_perform(multi_handle, &running_handles) == CURLM_CALL_MULTI_PERFORM);
+            } while (running_handles);
+            curl_multi_remove_handle( multi_handle, curl );
+            curl_easy_cleanup(curl);
+            if (res == 0)
+            {
+                NSData* image = [[NSData alloc]initWithBytes:streams->data length:streams->size];
+                UIImage* realImage = [UIImage imageWithData:image];
+                
+                if (realImage) {
+                    printf("success!!\n");
+                    photoItem.image = realImage;
+                    [_downloader dispatchData];
+
+                }
+            
+            }
+    //        int msgs_left;
+    //        CURLMsg* msg;
+    //
+    //        while (running_handles) {
+    //            while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(multi_handle, &running_handles)) {
+    //        		printf("select: %d\n", running_handles);
+    //            }
+    //        }
+    //        printf("select_: %d\n", running_handles);
+    //        while (msg = curl_multi_info_read(multi_handle, &msgs_left)) {
+    //            if (CURLMSG_DONE == msg->msg) {
+    //                printf("curl completed with status: %d \n", msg->data.result);
+    //
+    //                NSData* image = [[NSData alloc]initWithBytes:streams->data length:streams->size];
+    //                UIImage* realImage = [UIImage imageWithData:image];
+    //
+    //                if (realImage) {
+    //                    photoItem.image = realImage;
+    //                    [_downloader dispatchData];
+    //                    printf("complete!\n");
+    //                }
+    //                break;
+    //            }
+    //        }
+    //        curl_multi_remove_handle( multi_handle, curl );
+    //        curl_easy_cleanup(curl);
+            
+        }
+    
     return NULL;
 }
 

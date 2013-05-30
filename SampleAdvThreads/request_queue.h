@@ -12,7 +12,8 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#define NUM_THREADS 2
+#define NUM_THREADS 1
+
 
 typedef struct queue_element_tag{
     

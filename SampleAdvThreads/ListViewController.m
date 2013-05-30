@@ -142,7 +142,7 @@ static void* worker( void* param ){
     [super viewDidLoad];
 	
 	_operationList = [[NSMutableDictionary alloc]init];
-	initialize_queue(&global_queue, 1000);
+	initialize_queue(&global_queue, 10);
     // Uncomment the following line to preserve selection between presentations.
     // self.clearsSelectionOnViewWillAppear = NO;
  

@@ -50,9 +50,10 @@
 }
 
 - (void)dispatchData{
-    NSLog(@"Dispatch Result data...");
+    //NSLog(@"Dispatch Result data...");
     //[(NSObject *)self.delegate performSelector:@selector(imageDownloaderDidFinish:) withObject:self ];
     [(NSObject *)self.delegate performSelectorOnMainThread:@selector(imageDownloaderDidFinish:) withObject:self waitUntilDone:NO];
+    //[(NSObject *)self.delegate performSelectorOnMainThread:@selector(imageDownloaderDidFinish:) withObject:self waitUntilDone:YES];
     
 }
 @end
